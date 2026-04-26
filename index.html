@@ -321,9 +321,9 @@
   <div class="rhythm-controls">
     <div class="speed-group">
       <label>⏱ スピード：</label>
-      <button class="speed-btn" onclick="setSpeed(4000)" data-speed="4000">ゆっくり</button>
-      <button class="speed-btn active" onclick="setSpeed(2500)" data-speed="2500">ふつう</button>
-      <button class="speed-btn" onclick="setSpeed(1500)" data-speed="1500">はやい</button>
+      <button class="speed-btn" onclick="setSpeed(2000)" data-speed="2000">ゆっくり</button>
+      <button class="speed-btn active" onclick="setSpeed(800)"  data-speed="800">ふつう</button>
+      <button class="speed-btn" onclick="setSpeed(200)"  data-speed="200">はやい</button>
     </div>
     <label class="voice-toggle">🔊 音声
       <label class="toggle-switch">
@@ -710,27 +710,60 @@ function getFemaleVoice() {
 if (window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = () => { _femaleVoice = null; };
 }
+// ===========================
+// SPEECH  (3語を固定リズムで順番に発音 → 完了コールバック付き)
+// ===========================
 let _speakTimers = [];
 
-function speakVerb(v) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
+// GAP: 語と語の間隔(ms)  WORD_DUR: 1語の発音時間の推定(ms)
+const SPEAK_GAP = 750;
+const SPEAK_WORD_DUR = 500; // 余裕を持った推定値
+const SPEAK_TOTAL = SPEAK_GAP * 2 + SPEAK_WORD_DUR + 300; // ≒ 2350ms
+
+// 全タイマー・音声をキャンセル
+function stopSpeech() {
   _speakTimers.forEach(clearTimeout);
   _speakTimers = [];
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
+// 3語をリズミカルに発音。onComplete は全語終了後(または音声無効時)に呼ばれる
+function speakVerb(v, onComplete) {
+  stopSpeech();
+
+  const voiceOn = document.getElementById('voiceToggle').checked;
+  if (!voiceOn || !window.speechSynthesis) {
+    // 音声OFF: コールバックだけ即時実行
+    if (onComplete) onComplete();
+    return;
+  }
 
   const [s0, s1, s2] = v.say || [v.base, v.past, v.pp];
   const voice = getFemaleVoice();
-  const GAP = 800; // ms between each word — keeps steady rhythm
 
+  let doneFired = false;
+  function fireDone() {
+    if (doneFired) return;
+    doneFired = true;
+    if (onComplete) onComplete();
+  }
+
+  // 語ごとに独立した utterance — 繰り返し単語もスキップされない
   [s0, s1, s2].forEach((text, i) => {
-    const id = setTimeout(() => {
+    const tid = setTimeout(() => {
       const utt = new SpeechSynthesisUtterance(text);
       utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1.4;
       if (voice) utt.voice = voice;
+      // 最後の語が終わったらコールバック
+      if (i === 2) utt.onend = () => setTimeout(fireDone, 250);
       window.speechSynthesis.speak(utt);
-    }, GAP * i);
-    _speakTimers.push(id);
+    }, SPEAK_GAP * i);
+    _speakTimers.push(tid);
   });
+
+  // onend が発火しないブラウザへのフォールバック
+  const fallback = setTimeout(fireDone, SPEAK_TOTAL);
+  _speakTimers.push(fallback);
 }
 
 // ===========================
@@ -741,7 +774,9 @@ let filteredVerbs = [...VERBS];
 let rhythmIdx = 0;
 let isPlaying = false;
 let playTimer = null;
-let speed = 2500;
+// speed = 語り終わった後、次のカードまでの待ち時間(ms)
+// 自動再生の体感速度は「発音時間(≒2350ms) + speed」で決まる
+let speed = 800;
 
 function setRhythmFilter(f) {
   rhythmFilter = f;
@@ -749,10 +784,13 @@ function setRhythmFilter(f) {
   rhythmIdx = 0;
   document.querySelectorAll('[data-rfilter]').forEach(b =>
     b.classList.toggle('active', b.dataset.rfilter === f));
-  showCard(0);
+  stopSpeech();
+  clearTimeout(playTimer);
+  playCard(0);
 }
 
-function showCard(idx) {
+// カードのDOM更新のみ（副作用なし）
+function renderCard(idx) {
   const v = filteredVerbs[idx];
   if (!v) return;
   document.getElementById('rEmoji').textContent    = v.e;
@@ -768,39 +806,53 @@ function showCard(idx) {
   document.getElementById('progressBar').style.width = pct + '%';
   const card = document.getElementById('rhythmCard');
   card.classList.remove('beat'); void card.offsetWidth; card.classList.add('beat');
-  if (document.getElementById('voiceToggle').checked) speakVerb(v);
+}
+
+// showCard の外部互換エイリアス（init 等から呼ばれる）
+function showCard(idx) { playCard(idx); }
+
+// カードを表示 → 発音 → 自動再生中なら終了後に次へ
+function playCard(idx) {
+  rhythmIdx = idx;
+  renderCard(idx);
+  speakVerb(filteredVerbs[idx], () => {
+    // 音声完了 or 音声OFF → 自動再生中なら一定時間後に次カードへ
+    if (!isPlaying) return;
+    clearTimeout(playTimer);
+    playTimer = setTimeout(() => {
+      if (!isPlaying) return;
+      playCard((rhythmIdx + 1) % filteredVerbs.length);
+    }, speed);
+  });
 }
 
 function nextCard() {
-  rhythmIdx = (rhythmIdx + 1) % filteredVerbs.length;
-  showCard(rhythmIdx);
-  if (isPlaying) resetTimer();
+  stopSpeech();
+  clearTimeout(playTimer);
+  playCard((rhythmIdx + 1) % filteredVerbs.length);
 }
 function prevCard() {
-  rhythmIdx = (rhythmIdx - 1 + filteredVerbs.length) % filteredVerbs.length;
-  showCard(rhythmIdx);
-  if (isPlaying) resetTimer();
+  stopSpeech();
+  clearTimeout(playTimer);
+  playCard((rhythmIdx - 1 + filteredVerbs.length) % filteredVerbs.length);
 }
 function togglePlay() {
   isPlaying = !isPlaying;
   const btn = document.getElementById('playBtn');
   if (isPlaying) {
     btn.textContent = '⏸ 一時停止'; btn.style.background = '#FF6B6B'; btn.style.color = 'white';
-    resetTimer();
+    // 今のカードをもう一度発音 → 自動連鎖開始
+    playCard(rhythmIdx);
   } else {
     btn.textContent = '▶ 自動再生'; btn.style.background = ''; btn.style.color = '';
+    stopSpeech();
     clearTimeout(playTimer);
   }
-}
-function resetTimer() {
-  clearTimeout(playTimer);
-  playTimer = setTimeout(() => { if (isPlaying) nextCard(); }, speed);
 }
 function setSpeed(s) {
   speed = s;
   document.querySelectorAll('.speed-btn').forEach(b =>
     b.classList.toggle('active', parseInt(b.dataset.speed) === s));
-  if (isPlaying) resetTimer();
 }
 
 // ===========================
