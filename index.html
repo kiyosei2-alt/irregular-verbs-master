@@ -708,26 +708,27 @@ function getFemaleVoice() {
 if (window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = () => { _femaleVoice = null; };
 }
+let _speakTimers = [];
+
 function speakVerb(v) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
+  _speakTimers.forEach(clearTimeout);
+  _speakTimers = [];
+
   const [s0, s1, s2] = v.say || [v.base, v.past, v.pp];
   const voice = getFemaleVoice();
+  const GAP = 800; // ms between each word — keeps steady rhythm
 
-  function makeUtt(text) {
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1.4;
-    if (voice) utt.voice = voice;
-    return utt;
-  }
-
-  // 3語を別utteranceに分けて順番に発音（同じ単語の繰り返しでもスキップされない）
-  const u0 = makeUtt(s0);
-  const u1 = makeUtt(s1);
-  const u2 = makeUtt(s2);
-  u0.onend = () => setTimeout(() => window.speechSynthesis.speak(u1), 250);
-  u1.onend = () => setTimeout(() => window.speechSynthesis.speak(u2), 250);
-  window.speechSynthesis.speak(u0);
+  [s0, s1, s2].forEach((text, i) => {
+    const id = setTimeout(() => {
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1.4;
+      if (voice) utt.voice = voice;
+      window.speechSynthesis.speak(utt);
+    }, GAP * i);
+    _speakTimers.push(id);
+  });
 }
 
 // ===========================
