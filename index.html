@@ -452,7 +452,7 @@
 const VERBS = [
   {e:'✂️', base:'cut',       past:'cut',        pp:'cut',          ja:'切る',             pat:'aaa'},
   {e:'📌', base:'put',       past:'put',        pp:'put',          ja:'置く・つける',      pat:'aaa'},
-  {e:'📖', base:'read',      past:'read',       pp:'read',         ja:'読む',             pat:'aaa'},
+  {e:'📖', base:'read',      past:'read',       pp:'read',         ja:'読む',             pat:'aaa', say:['read','red','red']},
   {e:'🥊', base:'hit',       past:'hit',        pp:'hit',          ja:'打つ',             pat:'aaa'},
   {e:'🩹', base:'hurt',      past:'hurt',       pp:'hurt',         ja:'傷つける',         pat:'aaa'},
   {e:'⚙️', base:'set',       past:'set',        pp:'set',          ja:'セットする',        pat:'aaa'},
@@ -711,7 +711,8 @@ if (window.speechSynthesis) {
 function speakVerb(v) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(v.base + ' ... ' + v.past + ' ... ' + v.pp);
+  const [s0, s1, s2] = v.say || [v.base, v.past, v.pp];
+  const utt = new SpeechSynthesisUtterance(s0 + ' ... ' + s1 + ' ... ' + s2);
   utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1.4;
   const voice = getFemaleVoice();
   if (voice) utt.voice = voice;
