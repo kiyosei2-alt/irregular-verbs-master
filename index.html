@@ -743,31 +743,28 @@ function speakVerb(v, onComplete) {
   const [s0, s1, s2] = v.say || [v.base, v.past, v.pp];
   const voice = getFemaleVoice();
   const { gap, rate } = SPEED_PARAMS[speed] || SPEED_PARAMS[800];
-  const fallbackMs = gap * 2 + Math.round(600 / rate) + 400;
 
-  let doneFired = false;
-  function fireDone() {
-    if (doneFired) return;
-    doneFired = true;
-    if (onComplete) onComplete();
-  }
+  // 3語の推定所要時間: 最後の語が始まる時刻 + 1語の発音時間 + バッファ
+  // onend は Windows TTS で早期発火するバグがあるため使わず、タイマーのみで管理
+  const wordDur = Math.round(550 / rate); // 1語の発音時間推定
+  const totalMs = gap * 2 + wordDur + 400; // 最初の語から最後の語が終わるまで
 
-  // 語ごとに独立した utterance — 繰り返し単語もスキップされない
+  // 語ごとに独立した utterance（同じ単語の繰り返しでもスキップされない）
   [s0, s1, s2].forEach((text, i) => {
     const tid = setTimeout(() => {
       const utt = new SpeechSynthesisUtterance(text);
       utt.lang = 'en-US'; utt.rate = rate; utt.pitch = 1.4;
       if (voice) utt.voice = voice;
-      // 最後の語が終わったらコールバック
-      if (i === 2) utt.onend = () => setTimeout(fireDone, 200);
       window.speechSynthesis.speak(utt);
     }, gap * i);
     _speakTimers.push(tid);
   });
 
-  // onend が発火しないブラウザへのフォールバック
-  const fallback = setTimeout(fireDone, fallbackMs);
-  _speakTimers.push(fallback);
+  // 全語の発音が終わるタイミングで完了コールバック（onend 不使用）
+  if (onComplete) {
+    const doneId = setTimeout(onComplete, totalMs);
+    _speakTimers.push(doneId);
+  }
 }
 
 // ===========================
