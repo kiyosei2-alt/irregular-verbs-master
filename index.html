@@ -500,7 +500,7 @@ const VERBS = [
   {e:'👃', base:'smell',     past:'smelt',      pp:'smelt',        ja:'臭う',             pat:'abb'},
   {e:'🔥', base:'burn',      past:'burnt',      pp:'burnt',        ja:'燃える',           pat:'abb'},
 
-  {e:'🌟', base:'be',        past:'was/were',   pp:'been',         ja:'ある・いる',        pat:'abc'},
+  {e:'🌟', base:'be',        past:'was/were',   pp:'been',         ja:'ある・いる',        pat:'abc', say:['be','was or were','been']},
   {e:'🏃', base:'go',        past:'went',       pp:'gone',         ja:'行く',             pat:'abc'},
   {e:'✅', base:'do',        past:'did',        pp:'done',         ja:'する',             pat:'abc'},
   {e:'🍽️', base:'eat',       past:'ate',        pp:'eaten',        ja:'食べる',           pat:'abc'},
@@ -712,11 +712,22 @@ function speakVerb(v) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const [s0, s1, s2] = v.say || [v.base, v.past, v.pp];
-  const utt = new SpeechSynthesisUtterance(s0 + ' ... ' + s1 + ' ... ' + s2);
-  utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1.4;
   const voice = getFemaleVoice();
-  if (voice) utt.voice = voice;
-  window.speechSynthesis.speak(utt);
+
+  function makeUtt(text) {
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1.4;
+    if (voice) utt.voice = voice;
+    return utt;
+  }
+
+  // 3語を別utteranceに分けて順番に発音（同じ単語の繰り返しでもスキップされない）
+  const u0 = makeUtt(s0);
+  const u1 = makeUtt(s1);
+  const u2 = makeUtt(s2);
+  u0.onend = () => setTimeout(() => window.speechSynthesis.speak(u1), 250);
+  u1.onend = () => setTimeout(() => window.speechSynthesis.speak(u2), 250);
+  window.speechSynthesis.speak(u0);
 }
 
 // ===========================
