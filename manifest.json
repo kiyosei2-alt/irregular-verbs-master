@@ -1,0 +1,27 @@
+{
+  "name": "不規則動詞マスター！",
+  "short_name": "動詞マスター",
+  "description": "英語の不規則動詞をたのしく覚えよう",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#764ba2",
+  "theme_color": "#667eea",
+  "orientation": "portrait-primary",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["education", "games"],
+  "screenshots": []
+}
