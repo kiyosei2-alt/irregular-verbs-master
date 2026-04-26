@@ -715,10 +715,12 @@ if (window.speechSynthesis) {
 // ===========================
 let _speakTimers = [];
 
-// GAP: 語と語の間隔(ms)  WORD_DUR: 1語の発音時間の推定(ms)
-const SPEAK_GAP = 750;
-const SPEAK_WORD_DUR = 500; // 余裕を持った推定値
-const SPEAK_TOTAL = SPEAK_GAP * 2 + SPEAK_WORD_DUR + 300; // ≒ 2350ms
+// speed ごとの発音パラメータ
+const SPEED_PARAMS = {
+  2000: { gap: 900, rate: 0.75 },  // ゆっくり
+   800: { gap: 750, rate: 0.90 },  // ふつう
+   200: { gap: 480, rate: 1.30 },  // はやい（倍速気味）
+};
 
 // 全タイマー・音声をキャンセル
 function stopSpeech() {
@@ -740,6 +742,8 @@ function speakVerb(v, onComplete) {
 
   const [s0, s1, s2] = v.say || [v.base, v.past, v.pp];
   const voice = getFemaleVoice();
+  const { gap, rate } = SPEED_PARAMS[speed] || SPEED_PARAMS[800];
+  const fallbackMs = gap * 2 + Math.round(600 / rate) + 400;
 
   let doneFired = false;
   function fireDone() {
@@ -752,17 +756,17 @@ function speakVerb(v, onComplete) {
   [s0, s1, s2].forEach((text, i) => {
     const tid = setTimeout(() => {
       const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1.4;
+      utt.lang = 'en-US'; utt.rate = rate; utt.pitch = 1.4;
       if (voice) utt.voice = voice;
       // 最後の語が終わったらコールバック
-      if (i === 2) utt.onend = () => setTimeout(fireDone, 250);
+      if (i === 2) utt.onend = () => setTimeout(fireDone, 200);
       window.speechSynthesis.speak(utt);
-    }, SPEAK_GAP * i);
+    }, gap * i);
     _speakTimers.push(tid);
   });
 
   // onend が発火しないブラウザへのフォールバック
-  const fallback = setTimeout(fireDone, SPEAK_TOTAL);
+  const fallback = setTimeout(fireDone, fallbackMs);
   _speakTimers.push(fallback);
 }
 
