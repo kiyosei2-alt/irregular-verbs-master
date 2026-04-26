@@ -319,12 +319,6 @@
 <!-- ===== RHYTHM PAGE ===== -->
 <div id="page-rhythm" class="page active">
   <div class="rhythm-controls">
-    <div class="speed-group">
-      <label>⏱ スピード：</label>
-      <button class="speed-btn" onclick="setSpeed(2000)" data-speed="2000">ゆっくり</button>
-      <button class="speed-btn active" onclick="setSpeed(800)"  data-speed="800">ふつう</button>
-      <button class="speed-btn" onclick="setSpeed(200)"  data-speed="200">はやい</button>
-    </div>
     <label class="voice-toggle">🔊 音声
       <label class="toggle-switch">
         <input type="checkbox" id="voiceToggle" checked>
@@ -720,9 +714,9 @@ let _speakTimers = [];
 //   3語目開始 = GAP*2 = 1600ms
 //   最長単語 "understood" を rate0.85 で読む時間 ≒ 1400ms
 //   合計 3000ms + 500ms バッファ = 3500ms
-const SPEAK_GAP   = 800;
+const SPEAK_GAP   = 1200;
 const SPEAK_RATE  = 0.85;
-const SPEAK_TOTAL = 3500;
+const SPEAK_TOTAL = 5000;
 const AUTO_PAUSE  = 1000; // 3語読み終わった後、次カードまでの間隔(ms)
 
 function stopSpeech() {
@@ -945,8 +939,7 @@ function checkAnswer(chosen, correct) {
     const card = document.getElementById('quizCard');
     card.classList.add('shimmer');
     setTimeout(() => card.classList.remove('shimmer'), 600);
-    if (document.getElementById('voiceToggle').checked) {
-      // find matching verb
+    if (quizMode !== 'ta' && document.getElementById('voiceToggle').checked) {
       const v = VERBS.find(x => x.base === currentQuizCorrect || x.past === currentQuizCorrect || x.pp === currentQuizCorrect);
       if (v) speakVerb(v);
     }
